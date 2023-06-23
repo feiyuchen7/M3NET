@@ -14,7 +14,7 @@ import pickle as pk
 import datetime
 import ipdb
 
-seed = 1746
+seed = 1746 # We use seed = 1746 on IEMOCAP and seed = 67137 on MELD
 def seed_everything(seed=seed):
     random.seed(seed)
     np.random.seed(seed)
@@ -338,9 +338,9 @@ if __name__ == '__main__':
     batch_size = args.batch_size
     modals = args.modals
     feat2dim = {'IS10':1582,'3DCNN':512,'textCNN':100,'bert':768,'denseface':342,'MELD_text':600,'MELD_audio':300}
-    D_audio = 100#feat2dim['IS10'] if args.Dataset=='IEMOCAP' else feat2dim['MELD_audio']
-    D_visual = 512#feat2dim['denseface']
-    D_text = feat2dim['textCNN'] if args.Dataset=='IEMOCAP' else feat2dim['MELD_text']
+    D_audio = 100 if args.Dataset=='IEMOCAP' else feat2dim['MELD_audio']
+    D_visual = 512 if args.Dataset=='IEMOCAP' else feat2dim['denseface']
+    D_text = 1024 #feat2dim['textCNN'] if args.Dataset=='IEMOCAP' else feat2dim['MELD_text']
 
     if args.multi_modal:
         if args.mm_fusion_mthd=='concat':
