@@ -233,15 +233,6 @@ class HyperGCN(nn.Module):
             for ii, _ in enumerate(Gnodes):
                 perm = list(permutations(_,2))
                 tmp = tmp + perm
-                if ii < 3:
-                    t_type = torch.LongTensor(perm).T.cuda()
-                    e_type = torch.where(t_type[1]-t_type[0] > 0, 1, 0).cuda()
-                    in_idx = e_type
-                else:
-                    e_type = torch.Tensor([2,5,7,3,4,6]).cuda()
-                    in_idx = torch.Tensor([1,0,0,1,1,0]).cuda()
-                edge_type = torch.cat([edge_type,e_type], dim=0).long()  
-                in_index0 = torch.cat([in_index0,in_idx], dim=0).long()
             batch = batch + [batch_count]*i*3
             batch_count = batch_count + 1
             hyperedge_type1 = hyperedge_type1 + [1]*i + [0]*3
