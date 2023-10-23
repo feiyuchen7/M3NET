@@ -14,7 +14,7 @@ import pickle as pk
 import datetime
 import ipdb
 
-seed = 1746 # We use seed = 1746 on IEMOCAP and seed = 67137 on MELD
+seed = 1475 # We use seed = 1475 on IEMOCAP and seed = 67137 on MELD
 def seed_everything(seed=seed):
     random.seed(seed)
     np.random.seed(seed)
@@ -304,11 +304,11 @@ if __name__ == '__main__':
 
     parser.add_argument('--norm', default='LN2', help='NORM type')
 
-    parser.add_argument('--edge_ratio', type=float, default=0.01, help='edge_ratio')
+    parser.add_argument('--testing', action='store_true', default=False, help='testing')
 
-    parser.add_argument('--num_convs', type=int, default=3, help='num_convs in EH')
+    parser.add_argument('--num_L', type=int, default=3, help='num_hyperconvs')
 
-    parser.add_argument('--opn', default='corr', help='option')
+    parser.add_argument('--num_K', type=int, default=4, help='num_convs')
 
     args = parser.parse_args()
     today = datetime.datetime.now()
@@ -338,8 +338,8 @@ if __name__ == '__main__':
     batch_size = args.batch_size
     modals = args.modals
     feat2dim = {'IS10':1582,'3DCNN':512,'textCNN':100,'bert':768,'denseface':342,'MELD_text':600,'MELD_audio':300}
-    D_audio = 100 if args.Dataset=='IEMOCAP' else feat2dim['MELD_audio']
-    D_visual = 512 if args.Dataset=='IEMOCAP' else feat2dim['denseface']
+    D_audio = feat2dim['IS10'] if args.Dataset=='IEMOCAP' else feat2dim['MELD_audio']
+    D_visual = feat2dim['denseface']
     D_text = 1024 #feat2dim['textCNN'] if args.Dataset=='IEMOCAP' else feat2dim['MELD_text']
 
     if args.multi_modal:
@@ -365,7 +365,7 @@ if __name__ == '__main__':
             D_m = D_text
         else:
             raise NotImplementedError
-    D_g = 512#1024
+    D_g = 512 if args.Dataset=='IEMOCAP' else 1024
     D_p = 150
     D_e = 100
     D_h = 100
@@ -406,9 +406,8 @@ if __name__ == '__main__':
                                  use_speaker=args.use_speaker,
                                  use_modal=args.use_modal,
                                  norm = args.norm,
-                                 edge_ratio = args.edge_ratio,
-                                 num_convs = args.num_convs,
-                                 opn = args.opn)
+                                 num_L = args.num_L,
+                                 num_K = args.num_K)
 
         print ('Graph NN with', args.base_model, 'as base model.')
         name = 'Graph'
@@ -479,11 +478,12 @@ if __name__ == '__main__':
     best_fscore, best_loss, best_label, best_pred, best_mask = None, None, None, None, None
     all_fscore, all_acc, all_loss = [], [], []
 
-    test_label = False
-    if test_label:
-        state = torch.load('best_model_IEMOCAP/model.pth')
-        model.load_state_dict(state['net'])
+    if args.testing:
+        state = torch.load("best_model.pth.tar")
+        model.load_state_dict(state)
+        print('testing loaded model')
         test_loss, test_acc, test_label, test_pred, test_fscore, _, _, _, _, _ = train_or_eval_graph_model(model, loss_function, test_loader, 0, cuda, args.modals, dataset=args.Dataset)
+        print('test_acc:',test_acc,'test_fscore:',test_fscore)
 
     for e in range(n_epochs):
         start_time = time.time()
@@ -506,6 +506,7 @@ if __name__ == '__main__':
 
         if best_fscore == None or best_fscore < test_fscore:
             best_fscore = test_fscore
+            best_label, best_pred = test_label, test_pred
             #test_loss, test_acc, test_label, test_pred, test_fscore, _, _, _, _, _ = train_or_eval_graph_model(model, loss_function, test_loader, e, cuda, args.modals, dataset=args.Dataset)
 
         if args.tensorboard:
@@ -516,33 +517,35 @@ if __name__ == '__main__':
 
         print('epoch: {}, train_loss: {}, train_acc: {}, train_fscore: {}, test_loss: {}, test_acc: {}, test_fscore: {}, time: {} sec'.\
                 format(e+1, train_loss, train_acc, train_fscore, test_loss, test_acc, test_fscore, round(time.time()-start_time, 2)))
+        if (e+1)%10 == 0:
+            print ('----------best F-Score:', max(all_fscore))
+            print(classification_report(best_label, best_pred, sample_weight=best_mask,digits=4))
+            print(confusion_matrix(best_label,best_pred,sample_weight=best_mask))
 
         
     
 
     if args.tensorboard:
         writer.close()
-
-    print('Test performance..')
-    print ('F-Score:', max(all_fscore))
-    if not os.path.exists("record_{}_{}_{}.pk".format(today.year, today.month, today.day)):
+    if not args.testing:
+        print('Test performance..')
+        print ('F-Score:', max(all_fscore))
+        if not os.path.exists("record_{}_{}_{}.pk".format(today.year, today.month, today.day)):
+            with open("record_{}_{}_{}.pk".format(today.year, today.month, today.day),'wb') as f:
+                pk.dump({}, f)
+        with open("record_{}_{}_{}.pk".format(today.year, today.month, today.day), 'rb') as f:
+            record = pk.load(f)
+        key_ = name_
+        if record.get(key_, False):
+            record[key_].append(max(all_fscore))
+        else:
+            record[key_] = [max(all_fscore)]
+        if record.get(key_+'record', False):
+            record[key_+'record'].append(classification_report(best_label, best_pred, sample_weight=best_mask,digits=4))
+        else:
+            record[key_+'record'] = [classification_report(best_label, best_pred, sample_weight=best_mask,digits=4)]
         with open("record_{}_{}_{}.pk".format(today.year, today.month, today.day),'wb') as f:
-            pk.dump({}, f)
-    with open("record_{}_{}_{}.pk".format(today.year, today.month, today.day), 'rb') as f:
-        record = pk.load(f)
-    key_ = name_
-    if record.get(key_, False):
-        record[key_].append(max(all_fscore))
-    else:
-        record[key_] = [max(all_fscore)]
-    if record.get(key_+'record', False):
-        record[key_+'record'].append(classification_report(best_label, best_pred, sample_weight=best_mask,digits=4))
-    else:
-        record[key_+'record'] = [classification_report(best_label, best_pred, sample_weight=best_mask,digits=4)]
-    with open("record_{}_{}_{}.pk".format(today.year, today.month, today.day),'wb') as f:
-        pk.dump(record, f)
+            pk.dump(record, f)
 
-    print(classification_report(best_label, best_pred, sample_weight=best_mask,digits=4))
-    print(confusion_matrix(best_label,best_pred,sample_weight=best_mask))
-
-
+        print(classification_report(best_label, best_pred, sample_weight=best_mask,digits=4))
+        print(confusion_matrix(best_label,best_pred,sample_weight=best_mask))
