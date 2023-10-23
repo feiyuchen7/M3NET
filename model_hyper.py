@@ -88,7 +88,7 @@ class PositionalEncoding(nn.Module):
 
 class HyperGCN(nn.Module):
     def __init__(self, a_dim, v_dim, l_dim, n_dim, nlayers, nhidden, nclass, dropout, lamda, alpha, variant, return_feature, use_residue, 
-                new_graph='full',n_speakers=2, modals=['a','v','l'], use_speaker=True, use_modal=False, edge_ratio=0.9, num_convs=3, opn='corr'):
+                new_graph='full',n_speakers=2, modals=['a','v','l'], use_speaker=True, use_modal=False, num_L=3, num_K=4):
         super(HyperGCN, self).__init__()
         self.return_feature = return_feature  #True
         self.use_residue = use_residue
@@ -106,26 +106,22 @@ class HyperGCN(nn.Module):
         self.speaker_embeddings = nn.Embedding(n_speakers, n_dim)
         self.use_speaker = use_speaker
         self.use_modal = use_modal
-        '''self.a_pos = PositionalEncoding(a_dim, 0.0)
-        self.v_pos = PositionalEncoding(v_dim, 0.0)
-        self.l_pos = PositionalEncoding(l_dim, 0.0)'''
         self.use_position = False
         #------------------------------------    
         self.fc1 = nn.Linear(n_dim, nhidden)      
-        #self.fc2 = nn.Linear(n_dim, nhidden)      
-        self.hyperconv1 = HypergraphConv(nhidden, nhidden, opn)
-        self.hyperconv2 = HypergraphConv(nhidden, nhidden, opn)
-        self.hyperconv3 = HypergraphConv(nhidden, nhidden, opn)
+        #self.fc2 = nn.Linear(n_dim, nhidden)     
+        self.num_L =  num_L
+        self.num_K =  num_K
+        for ll in range(num_L):
+            setattr(self,'hyperconv%d' %(ll+1), HypergraphConv(nhidden, nhidden))
         self.act_fn = nn.ReLU()
         self.hyperedge_weight = nn.Parameter(torch.ones(1000))
         self.EW_weight = nn.Parameter(torch.ones(5200))
         self.hyperedge_attr1 = nn.Parameter(torch.rand(nhidden))
         self.hyperedge_attr2 = nn.Parameter(torch.rand(nhidden))
         #nn.init.xavier_uniform_(self.hyperedge_attr1)
-        self.conv1 = highConv(nhidden, nhidden)
-        self.conv2 = highConv(nhidden, nhidden)
-        self.conv3 = highConv(nhidden, nhidden)
-        self.conv4 = highConv(nhidden, nhidden)
+        for kk in range(num_K):
+            setattr(self,'conv%d' %(kk+1), highConv(nhidden, nhidden))
 
     def forward(self, a, v, l, dia_len, qmask, epoch):
         qmask = torch.cat([qmask[:x,i,:] for i,x in enumerate(dia_len)],dim=0)
@@ -159,19 +155,18 @@ class HyperGCN(nn.Module):
         EW_weight = self.EW_weight[0:hyperedge_index.size(1)]
 
         edge_attr = self.hyperedge_attr1*hyperedge_type1 + self.hyperedge_attr2*(1-hyperedge_type1)
-        out = self.hyperconv1(x1, hyperedge_index, weight, edge_attr, EW_weight, dia_len)
-        out = self.hyperconv2(out, hyperedge_index, weight, edge_attr, EW_weight, dia_len)
-        out = self.hyperconv3(out, hyperedge_index, weight, edge_attr, EW_weight, dia_len)               
+        out = x1
+        for ll in range(self.num_L):
+            out = getattr(self,'hyperconv%d' %(ll+1))(out, hyperedge_index, weight, edge_attr, EW_weight, dia_len)             
         if self.use_residue:
             out1 = torch.cat([features, out], dim=-1)                                   
         #out1 = self.reverse_features(dia_len, out1)                                     
 
         #---------------------------------------
         gnn_edge_index, gnn_features = self.create_gnn_index(a, v, l, dia_len, self.modals)
-        gnn_out = x1 + self.conv1(x1,gnn_edge_index)
-        gnn_out = gnn_out + self.conv2(gnn_out,gnn_edge_index)
-        gnn_out = gnn_out + self.conv3(gnn_out,gnn_edge_index)
-        gnn_out = gnn_out + self.conv4(gnn_out,gnn_edge_index)
+        gnn_out = x1
+        for kk in range(self.num_K):
+            gnn_out = gnn_out + getattr(self,'conv%d' %(kk+1))(gnn_out,gnn_edge_index)
 
         out2 = torch.cat([out,gnn_out], dim=1)
         if self.use_residue:
@@ -312,4 +307,3 @@ class HyperGCN(nn.Module):
         edge_index = torch.cat([torch.LongTensor(index).T,torch.LongTensor(tmp).T],1).cuda()
 
         return edge_index, features
-        
