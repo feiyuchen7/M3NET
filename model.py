@@ -541,7 +541,7 @@ class Model(nn.Module):
                  n_classes=7, listener_state=False, context_attention='simple', dropout_rec=0.5, dropout=0.5, nodal_attention=True, avec=False, 
                  no_cuda=False, graph_type='relation', use_topic=False, alpha=0.2, multiheads=6, graph_construct='direct', use_GCN=False,use_residue=True,
                  dynamic_edge_w=False,D_m_v=512,D_m_a=100,modals='avl',att_type='gated',av_using_lstm=False,Deep_GCN_nlayers = 64, dataset='IEMOCAP',
-                 use_speaker=True, use_modal=False, norm='LN2', edge_ratio=0.9, num_convs = 3, opn='corr'):
+                 use_speaker=True, use_modal=False, norm='LN2', num_L = 3, num_K = 4):
         
         super(Model, self).__init__()
 
@@ -659,7 +659,7 @@ class Model(nn.Module):
 
         if self.graph_type=='hyper':
             self.graph_model = HyperGCN(a_dim=D_g, v_dim=D_g, l_dim=D_g, n_dim=D_g, nlayers=64, nhidden=graph_hidden_size, nclass=n_classes, 
-                                        dropout=self.dropout, lamda=0.5, alpha=0.1, variant=True, return_feature=self.return_feature, use_residue=self.use_residue, n_speakers=n_speakers, modals=self.modals, use_speaker=self.use_speaker, use_modal=self.use_modal, edge_ratio=edge_ratio, num_convs=num_convs, opn=opn)
+                                        dropout=self.dropout, lamda=0.5, alpha=0.1, variant=True, return_feature=self.return_feature, use_residue=self.use_residue, n_speakers=n_speakers, modals=self.modals, use_speaker=self.use_speaker, use_modal=self.use_modal, num_L=num_L, num_K=num_K)
             print("construct "+self.graph_type)
         elif self.graph_type=='None':
             if not self.multi_modal:
@@ -788,7 +788,10 @@ class Model(nn.Module):
                     U_ = U.reshape(-1,U.shape[-2],U.shape[-1])
                     U = self.txtCNN(U_).reshape(U.shape[0],U.shape[1],-1)
                 else:
-                    U = self.linear_l(U)
+                    if self.dataset=='MELD':
+                        pass
+                    else:
+                        U = self.linear_l(U)
                 #self.gru_l.flatten_parameters()
                 emotions_l, hidden_l = self.gru_l(U)
 
