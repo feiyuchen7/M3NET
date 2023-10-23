@@ -23,6 +23,7 @@ The implementation results may vary with training machines and random seeds. We 
 We also provide some pre-trained checkpoints on RoBERTa-based IEMOCAP at [here](https://www.dropbox.com/sh/gd32s36v7l3c3u9/AACOipUURd7gEbEcdYSrmP-0a?dl=0 "here").
 
 For instance, to test on IEMOCAP using the checkponts:
+
 `python -u train.py --base-model 'GRU' --dropout 0.5 --lr 0.0001 --batch-size 16 --graph_type='hyper' --epochs=0 --graph_construct='direct' --multi_modal --mm_fusion_mthd='concat_DHT' --modals='avl' --Dataset='IEMOCAP' --norm BN --testing`
 
 ### Training examples
