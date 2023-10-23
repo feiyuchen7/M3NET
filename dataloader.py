@@ -9,8 +9,7 @@ class IEMOCAPDataset(Dataset):
     def __init__(self, train=True):
         self.videoIDs, self.videoSpeakers, self.videoLabels, self.videoText,\
         self.videoAudio, self.videoVisual, self.videoSentence, self.trainVid,\
-        self.testVid = pickle.load(open('./IEMOCAP_features/IEMOCAP_features_raw.pkl', 'rb'), encoding='latin1')
-        #self.testVid = pickle.load(open('./IEMOCAP_features/IEMOCAP_features.pkl', 'rb'), encoding='latin1')
+        self.testVid = pickle.load(open('./IEMOCAP_features/IEMOCAP_features.pkl', 'rb'), encoding='latin1')
 
         _, _, self.roberta1, self.roberta2, self.roberta3, self.roberta4,\
         _, _, _, _ = pickle.load(open('./IEMOCAP_features/iemocap_features_roberta.pkl', 'rb'), encoding='latin1')
