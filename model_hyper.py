@@ -122,6 +122,7 @@ class HyperGCN(nn.Module):
         #nn.init.xavier_uniform_(self.hyperedge_attr1)
         for kk in range(num_K):
             setattr(self,'conv%d' %(kk+1), highConv(nhidden, nhidden))
+        self.conv = highConv(nhidden, nhidden)
 
     def forward(self, a, v, l, dia_len, qmask, epoch):
         qmask = torch.cat([qmask[:x,i,:] for i,x in enumerate(dia_len)],dim=0)
